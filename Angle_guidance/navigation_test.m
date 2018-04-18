@@ -23,13 +23,12 @@ cd(pathstr);
 
 % Clear console and variables
 clc;
-clear all;
+clear all; %#ok<CLALL>
 close all;
 
 % Add path
-addpath(genpath('./Utility'));
-
-%set(0,'DefaultFigureWindowStyle','docked')
+run ../Lidar/use_lidar
+run ../Maps/use_map
 
 
 %**************************************************************************
@@ -51,21 +50,14 @@ K_ang = 8;
 K_d = 1/5;
 
 
-% mapName = './MapsAndPaths/Povo1_floor1.txt';
-% scale = 3;
-
-mapName = './Maps/Povo2_floor1.txt';
-% mapName = './Maps/demoKinektMap.txt';
-scale = 1;
-
+mapName = 'Povo2_floor1.txt';
 
 
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
 %**************************************************************************
 fprintf('%d) Loading obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-% Load Obstacles
-[ WallObstacles,xRangeObstacles,yRangeObstacles ] = loadMapObstacles( mapName,scale );
+obstaclesTree = loadPath(mapName);
 
 %**************************************************************************
 %% Plot map
@@ -84,7 +76,7 @@ title('Map','Interpreter','latex');
 xlabel('$x_{glob} [m] $','Interpreter','latex');
 ylabel('$y_{glob} [m] $','Interpreter','latex');
 axis equal;
-fig_1_ObstPoly = plotObstacles(WallObstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
+fig_1_ObstPoly = plotObstacles(obstaclesTree.obstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
 axis tight;
 limiti_x = xlim();
 limiti_y = ylim();
@@ -115,11 +107,6 @@ fill(thetas_tartuf([1:end,end:-1:1]),[ones(1,numel(thetas_tartuf)),-ones(1,numel
 xlabel('$\theta_{las} [m] $','Interpreter','latex');
 ylabel('$d_{las} [m] $','Interpreter','latex');
 
-%**************************************************************************
-%% Creeate obstacles tree
-%**************************************************************************
-fprintf('%d) Createing obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-[ obstaclesTree ] = createTree( WallObstacles, xRangeObstacles, yRangeObstacles);
 
 %**************************************************************************
 %% Create random state of particle and compute information

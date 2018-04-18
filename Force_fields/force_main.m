@@ -11,17 +11,17 @@ close all;
 
 % Add path
 run ../Lidar/use_lidar
-
-%set(0,'DefaultFigureWindowStyle','docked')
+run ../Maps/use_map
+run  use_force
 
 
 %**************************************************************************
 %% Parameters definition
 %**************************************************************************
-
 % Print to screen what the script is doing
 sec_numb = 1; fprintf('%d) Loading users params\n',sec_numb); sec_numb = sec_numb + 1;
 
+mapName = 'Povo2_floor1.txt';
 
 % Define lidar parameter are in generateLIdar function.
 fake_lid = generateLidar([],0);
@@ -30,25 +30,13 @@ LidarScanArea = defineLidarArea(R);
 
 
 TART_D = 0.5;   % Diametro Tartufino
-K_ang = 8;
-K_d = 1/5;
-
-
-% mapName = './MapsAndPaths/Povo1_floor1.txt';
-% scale = 3;
-
-mapName = '../Lidar/Maps/Povo2_floor1.txt';
-% mapName = './Maps/demoKinektMap.txt';
-scale = 1;
 
 
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
 %**************************************************************************
 fprintf('%d) Loading obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-% Load Obstacles
-[ WallObstacles,xRangeObstacles,yRangeObstacles ] = loadMapObstacles( mapName,scale );
-
+obstaclesTree = loadPath(mapName);
 
 %**************************************************************************
 %% Plot map
@@ -67,7 +55,7 @@ title('Map','Interpreter','latex');
 xlabel('$x_{glob} [m] $','Interpreter','latex');
 ylabel('$y_{glob} [m] $','Interpreter','latex');
 axis equal;
-fig_1_ObstPoly = plotObstacles(WallObstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
+fig_1_ObstPoly = plotObstacles(obstaclesTree.obstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
 axis tight;
 limiti_x = xlim();
 limiti_y = ylim();
@@ -102,13 +90,6 @@ plot(fake_lid.angle_max*[1 1],[-0.2 fake_lid.range_max],'k-.');
 fill(thetas_tartuf([1:end,end:-1:1]),[ones(1,numel(thetas_tartuf)),-ones(1,numel(thetas_tartuf))]*TART_D/2,[0, 100, 255]/255,'FaceAlpha',0.7,'EdgeAlpha',1,'EdgeColor','k','LineWidth',2);
 xlabel('$\theta_{las} [m] $','Interpreter','latex');
 ylabel('$d_{las} [m] $','Interpreter','latex');
-
-
-%**************************************************************************
-%% Creeate obstacles tree
-%**************************************************************************
-fprintf('%d) Createing obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-[ obstaclesTree ] = createTree( WallObstacles, xRangeObstacles, yRangeObstacles);
 
 
 %**************************************************************************

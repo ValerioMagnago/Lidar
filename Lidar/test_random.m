@@ -27,17 +27,15 @@ clear all;
 close all;
 
 % Add path
-addpath(genpath('./Utility'));
-
-%set(0,'DefaultFigureWindowStyle','docked')
-
+run use_lidar
+run ../Maps/use_map
 
 %**************************************************************************
 %% Parameters definition
 %**************************************************************************
-
-% Print to screen what the script is doing
 sec_numb = 1; fprintf('%d) Loading users params\n',sec_numb); sec_numb = sec_numb + 1;
+
+mapName = 'Povo2_floor1.txt';
 
 
 % Define a circular AREA
@@ -45,21 +43,11 @@ fake_lid = generateLidar([],0);
 R = fake_lid.range_max;
 LidarScanArea = defineLidarArea(R);
 
-
-% mapName = './MapsAndPaths/Povo1_floor1.txt';
-% scale = 3;
-
-mapName = './Maps/Povo2_floor1.txt';
-% mapName = './Maps/demoKinektMap.txt';
-scale = 1;
-
-
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
 %**************************************************************************
 fprintf('%d) Loading obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-% Load Obstacles
-[ WallObstacles,xRangeObstacles,yRangeObstacles ] = loadMapObstacles( mapName,scale );
+obstaclesTree = loadPath(mapName);
 
 %**************************************************************************
 %% Plot map
@@ -71,19 +59,14 @@ title('Map','Interpreter','latex');
 xlabel('x [m]','Interpreter','latex');
 ylabel('y [m]','Interpreter','latex');
 axis equal;
-fig_1_ObstPoly = plotObstacles(WallObstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
+fig_1_ObstPoly = plotObstacles(obstaclesTree.obstacles(:,2), 1 ,{[0.7,0.7,0.65],1});
 axis tight;
 limiti_x = xlim();
 limiti_y = ylim();
 xlim(limiti_x);
 ylim(limiti_y);
-%**************************************************************************
-%% Creeate obstacles tree
-%**************************************************************************
-fprintf('%d) Createing obstacles tree\n',sec_numb); sec_numb = sec_numb + 1;
-[ obstaclesTree ] = createTree( WallObstacles, xRangeObstacles, yRangeObstacles);
 
-%pause();
+
 %**************************************************************************
 %% Create random state of particle and compute information
 %**************************************************************************
