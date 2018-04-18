@@ -229,9 +229,9 @@ for step_id = 1:step_numb
     
     subplot(2,2,4);
     plot(thetas,lidarScan.ranges,'r*--','Tag','laser_range');
-    plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
+%     plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
     plot(theta*[1 1],[-0.2 fake_lid.range_max],'m-.','Tag','laser_range');
-    plot(theta, dist,'mo','Tag','laser_range');
+%     plot(theta, dist,'mo','Tag','laser_range');
     drawnow();
     
     endTime = toc;

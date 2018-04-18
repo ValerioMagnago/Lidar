@@ -4,6 +4,6 @@ function [LidarScanArea] = moveLidarArea(LidarScanArea,theta,p0)
 
 LidarScanArea.center = p0;
 LidarScanArea.orientation = theta;
-LidarScanArea.limits = [-LidarScanArea.radius,+LidarScanArea.radius;-LidarScanArea.radius,+LidarScanArea.radius] + p0;
+LidarScanArea.limits = [-LidarScanArea.radius,+LidarScanArea.radius;-LidarScanArea.radius,+LidarScanArea.radius] + p0(:,[1,1]);
 end
 
