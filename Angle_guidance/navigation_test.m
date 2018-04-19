@@ -52,6 +52,8 @@ K_d = 1/5;
 
 mapName = 'Povo2_floor1.txt';
 
+s0 = [301.5;-55;-pi/2];
+% s0 = [305;-16;0];
 
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
@@ -114,7 +116,7 @@ ylabel('$d_{las} [m] $','Interpreter','latex');
 fprintf('%d) Create random state \n',sec_numb); sec_numb = sec_numb + 1;
 rng(0,'twister');  % initialize the random number generator to make the results in this example repeatable
 
-s0 = [305;-16;0];
+
 state = s0; % x,y,theta of the system
 
 
@@ -136,9 +138,6 @@ for step_id = 1:step_numb
     
     for ang_id=1:numel(lidarScan.ranges)
         angolo = angles(ang_id);
-        if(angolo<-pi/6 || angolo>pi/6)
-            continue;            
-        end
         d = lidarScan.ranges(ang_id);
         if(isnan(d))
             continue;
@@ -151,17 +150,20 @@ for step_id = 1:step_numb
             stop = true;
         end
         
+        if angolo<0
+           d = d*0.8; 
+        end
         dA = d*d;
         Atot = Atot + dA;
         sum_angle = sum_angle + dA*angolo;
-        sum_d = sum_d + dA*d;
+        sum_d     = sum_d     + dA*d;
     end
     
-    theta = sum_angle / Atot; %- pi/50;
+    theta = sum_angle / Atot;
     dist  = sum_d / Atot;
     
     
-    if(stop)
+    if(stop || Atot < 300)
         v = 0;
         omega = -0.5; % turn right
     else
@@ -195,8 +197,6 @@ for step_id = 1:step_numb
     plot(lidarScan.range_max*cos(thetas)+state(1),lidarScan.range_max*sin(thetas)+state(2),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))]+state(1),lidarScan.range_max*[0,sin(thetas(1))]+state(2),'m--','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(end))]+state(1),lidarScan.range_max*[0,sin(thetas(end))]+state(2),'m--','Tag','laser_range');
-%     plot3(state(1)*[1,1],state(2)*[1,1],omega*[0,10],'b','linewidth',3,'Tag','speeds');
-%     plot(state(1)+[0,v*cos(state(3))],state(2)+[0,v*sin(state(3))],'g','linewidth',3,'Tag','speeds');    
     plot(state(1),state(2),'k.','markersize',8);    
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
     
@@ -215,10 +215,16 @@ for step_id = 1:step_numb
     
     
     subplot(2,2,4);
-    plot(thetas,lidarScan.ranges,'r*--','Tag','laser_range');
-%     plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
+    distss = lidarScan.ranges;
+    logic = isinf(distss);
+    distss(logic) = lidarScan.range_max; 
+    thetas = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
+    plot(thetas,distss,'r--','Tag','laser_range');    
+    plot(thetas(not(logic)),distss(not(logic)),'r*','Tag','laser_range');    
+    plot(thetas(logic),distss(logic),'c*','Tag','laser_range');    
+    plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
     plot(theta*[1 1],[-0.2 fake_lid.range_max],'m-.','Tag','laser_range');
-%     plot(theta, dist,'mo','Tag','laser_range');
+    plot(theta, dist,'mo','Tag','laser_range');
     drawnow();
     
     endTime = toc;

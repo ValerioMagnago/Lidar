@@ -1,3 +1,20 @@
+% --------------------------------------------------------------
+%
+%   Display the wall in the FOV
+%
+% --------------------------------------------------------------
+%======================================================================%
+%                                                                      %
+%  Autors: Valerio Magnago                                             %
+%          Daniele Fontanelli                                          %
+%          University of Trento                                        %
+%          valerio.magnago@unitn.it                                    %
+%                                                                      %
+%  Date:  24/10                                                        %
+%  Version: 0.1                                                        %
+%======================================================================%
+
+
 %% Init console
 % Go to script folder
 filename = which(mfilename);
@@ -12,16 +29,15 @@ close all;
 % Add path
 run ../Lidar/use_lidar
 run ../Maps/use_map
-run  use_force
 
 
 %**************************************************************************
 %% Parameters definition
 %**************************************************************************
+
 % Print to screen what the script is doing
 sec_numb = 1; fprintf('%d) Loading users params\n',sec_numb); sec_numb = sec_numb + 1;
 
-mapName = 'Povo2_floor1.txt';
 
 % Define lidar parameter are in generateLIdar function.
 fake_lid = generateLidar([],0);
@@ -30,7 +46,14 @@ LidarScanArea = defineLidarArea(R);
 
 
 TART_D = 0.5;   % Diametro Tartufino
+K_ang = 8;
+K_d = 1/5;
 
+
+mapName = 'Povo2_floor1.txt';
+
+%s0 = [301.5;-55;+pi/2];
+s0 = [305;-16;0];
 
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
@@ -72,11 +95,6 @@ xlim([-1 1]*fake_lid.range_max);
 ylim([-1 1]*fake_lid.range_max);
 xlabel('$x_{tartuf} [m] $','Interpreter','latex');
 ylabel('$y_{tartuf} [m] $','Interpreter','latex');
-arrow = 1; % initialization force plot
-
-
-
-
 
 subplot(2,2,4);
 hold on;
@@ -84,6 +102,7 @@ axis equal;
 box
 xlim([-1 1]*pi);
 ylim([-0.2 fake_lid.range_max]);
+set(gca, 'XDir','reverse')   % per ordinare e mettere sinistra a sinistra e destra a destra
 title('on board','Interpreter','latex');
 plot(fake_lid.angle_min*[1 1],[-0.2 fake_lid.range_max],'k-.');
 plot(fake_lid.angle_max*[1 1],[-0.2 fake_lid.range_max],'k-.');
@@ -93,82 +112,116 @@ ylabel('$d_{las} [m] $','Interpreter','latex');
 
 
 %**************************************************************************
-%% Force field parameters
-%**************************************************************************
-%% Define potential repulsive functions
-% Define repulsive force U_alpha_B (eq.13 SFM)
-syms U_0_alpha_B r_alpha_B_x r_alpha_B_y R
-
-r_alpha_B = [r_alpha_B_x; r_alpha_B_y];
-U_alpha_B = U_0_alpha_B * exp(-(norm(r_alpha_B))/R);
-Grad_U    = gradient(U_alpha_B,[r_alpha_B_x, r_alpha_B_y]);
-Grad_U    = matlabFunction(Grad_U);
-
-clear U_0_alpha_B
-clear r_alpha_B_x
-clear r_alpha_B_y
-clear R
-% symObj    = syms;
-%
-% cellfun(@clear,symObj)
-% use like this: Grad_U(R,U_0_alpha_B,r_alpha_B_x,r_alpha_B_y)
-% Parameters:
-% R_potential           = .3;
-% U_0_alpha_B_potential = 200;
-% R_vortex              = 10;
-% U_0_alpha_B_vortex    = 10;
-[R_potential, U_0_alpha_B_potential] = tune_potential(0.5, 1, 10, 0.01);
-[R_vortex, U_0_alpha_B_vortex]       = tune_potential(0.5, 3, 3, 1);
-
-dist                  = 0.1;
-% walker_positions      = {[dist; 0], [-dist; 0], [0; dist], [0; -dist]}; % filter the potential arond the walker position
-walker_positions      = {[0;0]};
-
-%% Define control data
-omega_max        = 45 * pi / 180; % max angula velocity for the robot
-k_i_vel          = 1; % integral gain on velocity
-v_0              = 0;   % initial velocity (integrator)
-v_max            = 1; % max forward velocity for the robot
-v_des            = 1;
-k_prj_vel        = 1; % gain for the projection of the total force along the x axis of the vehicle
-k_prj_omega      = 2; % gain for the projection of the total force along the y axis of the vehicle
-braking_angle    = 75*pi/180;
-max_deceleration = 10;
-vortex_force_old = [0;0];
-
-%**************************************************************************
 %% Create random state of particle and compute information
 %**************************************************************************
 fprintf('%d) Create random state \n',sec_numb); sec_numb = sec_numb + 1;
 rng(0,'twister');  % initialize the random number generator to make the results in this example repeatable
 
-s0          = [380;-16;0];
-state       = s0; % x,y,theta of the system
-v_old       = 0; % initial linear velocity
-omega_old   = 0; % initial angular velocity
 
+state = s0; % x,y,theta of the system
 
-
+larg_porta = 1;
 dt = 0.1;
 sim_time = 1000;  % time to simulate in sec
 step_numb = sim_time/dt;
+start_port = 1;
+end_port = 0;
 for step_id = 1:step_numb
     tic
-    
-    
     %% Simulate LIDAR
-    [lidarScan] = simulateLIDAR(LidarScanArea,obstaclesTree,state);
-    [v, omega]  = lidar2force_field(lidarScan, state, v_old, omega_old, dt);
-    v_old       = v;
-    omega_old   = omega;
+    [lidarScan] = simulateLIDAR(LidarScanArea,obstaclesTree,state);    
+    angles = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
+    
+    %% Check port presence    
+    prev_d = min(lidarScan.ranges(1),lidarScan.range_max);
+    passaggi = [];
+    for ang_id=1:numel(lidarScan.ranges)
+        angolo = angles(ang_id);
+        d = lidarScan.ranges(ang_id);
+        if(isnan(d))
+            continue;
+        end
+        
+        if(isinf(d))
+            d = lidarScan.range_max;
+            end_port = ang_id;
+        else
+            if(((end_port - start_port)*lidarScan.angle_increment*lidarScan.range_max)>larg_porta)
+                passaggi = [passaggi; [start_port,end_port]];
+            end
+            start_port = ang_id+1;
+            end_port = ang_id;
+        end
+        
+        if(abs(d-prev_d)>larg_porta)
+            passaggi = [passaggi; ang_id - [1,0]];
+        end
+
+        % Update last d
+        prev_d = d;
+    end
+    if(((end_port - start_port)*lidarScan.angle_increment*lidarScan.range_max)>larg_porta)
+        passaggi = [passaggi; [start_port,end_port]];
+    end
+    
+    %% Compute control    
+    Atot = 0;
+    sum_angle = 0;
+    sum_d = 0;
+    stop = false;
+    
+    list_d = [];
+    
+    for ang_id=1:numel(lidarScan.ranges)
+        angolo = angles(ang_id);
+        d = lidarScan.ranges(ang_id);
+        if(isnan(d))
+            continue;
+        end
+        if(isinf(d))
+            d = lidarScan.range_max;
+        end
+        
+        
+        if(d < TART_D)
+            stop = true;
+        end
+        
+        
+        dA = d*d;
+        list_d = [list_d,d];
+        
+        Atot = Atot + dA;
+        sum_angle = sum_angle + dA*angolo;
+        sum_d     = sum_d     + dA*d;
+        
+        % Update last d
+        prev_d = d;
+    end
+    
+    % Compute the mean
+    theta = sum_angle / Atot;
+    dist  = sum_d / Atot;
+    
+    
+    if(stop || Atot < 300)
+        v = 0;
+        omega = -0.5; % turn right
+    else
+        v = K_d*dist;
+        omega = K_ang*theta;
+    end
     
     %% PLOT
     forward_time = 2;
     forward_step = ceil(forward_time/dt);
+    
+    distss = lidarScan.ranges;
+    logic = isinf(distss);
+    distss(logic) = lidarScan.range_max;
+    
     subplot(1,2,1);
     tag_to_del = {'laser_point','laser_range','vehicle','speeds','path'};
-    tmp = [cos(state(3)), -sin(state(3)); sin(state(3)), cos(state(3))]*[total_force(1);total_force(2)];
-    %     arrow = quiver(state(1), state(2), tmp(1), tmp(2), 'color', 'g', 'linewidth', 2);
     for kk=1:numel(tag_to_del)
         to_del = findobj('Tag',tag_to_del{kk});
         for kkk = 1:numel(to_del)
@@ -180,7 +233,7 @@ for step_id = 1:step_numb
     for prev=2:forward_step
         state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
-    thetas = state(3) + linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
+    thetas = state(3)+linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
     fill(tartuf_ingombro.x([1:end,1])+state(1), tartuf_ingombro.y([1:end,1])+state(2),[0, 100, 255]/255,'FaceAlpha',0.7,'EdgeAlpha',1,'EdgeColor','k','LineWidth',2,'Tag','vehicle');
     plot(state(1),state(2),'g.','markersize',6,'Tag','vehicle');
     plot(state(1)+[0,cos(state(3))]*TART_D/2*1.2,state(2)+[0,sin(state(3))]*TART_D/2*1.2,'k-','Tag','vehicle','linewidth',2);
@@ -191,29 +244,47 @@ for step_id = 1:step_numb
     plot(state(1),state(2),'k.','markersize',8);
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
     
-    
-    
     subplot(2,2,2);
     state_tmp = zeros(3,forward_step);
     state_tmp(:,1) = [0;0;state(3)];
     for prev=2:forward_step
         state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
-    
     plot(lidarScan.ranges.*cos(thetas),lidarScan.ranges.*sin(thetas),'r*','Tag','laser_point');
     plot(lidarScan.range_max*cos(thetas),lidarScan.range_max*sin(thetas),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))],lidarScan.range_max*[0,sin(thetas(1))],'m--','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(end))],lidarScan.range_max*[0,sin(thetas(end))],'m--','Tag','laser_range');
     plot(0,0,'.k','markersize',10,'Tag','laser_range');
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
-    %     arrow = quiver(0,0, total_force(1), total_force(2), 'color', 'g', 'linewidth', 2);
-    
+    for i=1:size(passaggi,1)
+        plot(distss(passaggi(i,:)).*cos(thetas(passaggi(i,:))),distss(passaggi(i,:)).*sin(thetas(passaggi(i,:))),'bx--','linewidth',2,'Tag','laser_range');
+    end
     
     subplot(2,2,4);
     thetas = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
-    plot(thetas,lidarScan.ranges,'r*--','Tag','laser_range');
-    drawnow();
+    state_polar_theta = atan2(state_tmp(2,:),state_tmp(1,:));
+    state_polar_r     = sqrt(state_tmp(2,:).^2+state_tmp(1,:).^2);
+    plot(thetas,distss,'r--','Tag','laser_range');
+    plot(thetas(not(logic)),distss(not(logic)),'r*','Tag','laser_range');
+    plot(thetas(logic),distss(logic),'c*','Tag','laser_range');
+    plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
+    plot(theta*[1 1],[-0.2 fake_lid.range_max],'m-.','Tag','laser_range');
+    plot(theta, dist,'mo','Tag','laser_range');
+    plot(state_polar_theta,state_polar_r,'--g','Tag','path')
     
+    %[valli,picchi] = trovaPicchi(distss);
+    %     media = mean(distss);
+    %     logic_jump = (abs(diff(distss))>0.8);
+    %     logic_high = (distss>5.5);
+    %     plot(thetas(logic_jump),distss(logic_jump) ,'b.','markersize',10,'Tag','laser_range');
+    %     plot(thetas(logic_high),distss(logic_high) ,'b.','markersize',10,'Tag','laser_range');
+    %     plot(thetas(picchi),distss(picchi),'bx','markersize',3,'Tag','laser_range');
+    for i=1:size(passaggi,1)
+        plot(thetas(passaggi(i,:)),distss(passaggi(i,:)),'bx--','linewidth',2,'Tag','laser_range');
+    end
+    
+    drawnow();
+%     pause();
     endTime = toc;
     pause(dt-endTime);
     
