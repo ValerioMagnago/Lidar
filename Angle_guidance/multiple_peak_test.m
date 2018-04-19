@@ -52,8 +52,8 @@ K_d = 1/5;
 
 mapName = 'Povo2_floor1.txt';
 
-s0 = [301.5;-55;-pi/2];
-% s0 = [305;-16;0];
+%s0 = [301.5;-55;+pi/2];
+s0 = [305;-16;0];
 
 %**************************************************************************
 %% Load obstacles map and creeate obstacles tree
@@ -102,6 +102,7 @@ axis equal;
 box
 xlim([-1 1]*pi);
 ylim([-0.2 fake_lid.range_max]);
+set(gca, 'XDir','reverse')   % per ordinare e mettere sinistra a sinistra e destra a destra
 title('on board','Interpreter','latex');
 plot(fake_lid.angle_min*[1 1],[-0.2 fake_lid.range_max],'k-.');
 plot(fake_lid.angle_max*[1 1],[-0.2 fake_lid.range_max],'k-.');
@@ -119,22 +120,57 @@ rng(0,'twister');  % initialize the random number generator to make the results 
 
 state = s0; % x,y,theta of the system
 
-
+larg_porta = 1;
 dt = 0.1;
 sim_time = 1000;  % time to simulate in sec
 step_numb = sim_time/dt;
+start_port = 1;
+end_port = 0;
 for step_id = 1:step_numb
     tic
     %% Simulate LIDAR
-    [lidarScan] = simulateLIDAR(LidarScanArea,obstaclesTree,state);
-    
-    
-    %% Compute control
+    [lidarScan] = simulateLIDAR(LidarScanArea,obstaclesTree,state);    
     angles = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
+    
+    %% Check port presence    
+    prev_d = min(lidarScan.ranges(1),lidarScan.range_max);
+    passaggi = [];
+    for ang_id=1:numel(lidarScan.ranges)
+        angolo = angles(ang_id);
+        d = lidarScan.ranges(ang_id);
+        if(isnan(d))
+            continue;
+        end
+        
+        if(isinf(d))
+            d = lidarScan.range_max;
+            end_port = ang_id;
+        else
+            if(((end_port - start_port)*lidarScan.angle_increment*lidarScan.range_max)>larg_porta)
+                passaggi = [passaggi; [start_port,end_port]];
+            end
+            start_port = ang_id+1;
+            end_port = ang_id;
+        end
+        
+        if(abs(d-prev_d)>larg_porta)
+            passaggi = [passaggi; ang_id - [1,0]];
+        end
+
+        % Update last d
+        prev_d = d;
+    end
+    if(((end_port - start_port)*lidarScan.angle_increment*lidarScan.range_max)>larg_porta)
+        passaggi = [passaggi; [start_port,end_port]];
+    end
+    
+    %% Compute control    
     Atot = 0;
     sum_angle = 0;
     sum_d = 0;
     stop = false;
+    
+    list_d = [];
     
     for ang_id=1:numel(lidarScan.ranges)
         angolo = angles(ang_id);
@@ -146,19 +182,24 @@ for step_id = 1:step_numb
             d = lidarScan.range_max;
         end
         
+        
         if(d < TART_D)
             stop = true;
         end
         
-        if angolo<0
-           d = d*0.8; 
-        end
+        
         dA = d*d;
+        list_d = [list_d,d];
+        
         Atot = Atot + dA;
         sum_angle = sum_angle + dA*angolo;
         sum_d     = sum_d     + dA*d;
+        
+        % Update last d
+        prev_d = d;
     end
     
+    % Compute the mean
     theta = sum_angle / Atot;
     dist  = sum_d / Atot;
     
@@ -171,11 +212,14 @@ for step_id = 1:step_numb
         omega = K_ang*theta;
     end
     
-    
- 
     %% PLOT
     forward_time = 2;
     forward_step = ceil(forward_time/dt);
+    
+    distss = lidarScan.ranges;
+    logic = isinf(distss);
+    distss(logic) = lidarScan.range_max;
+    
     subplot(1,2,1);
     tag_to_del = {'laser_point','laser_range','vehicle','speeds','path'};
     for kk=1:numel(tag_to_del)
@@ -183,11 +227,11 @@ for step_id = 1:step_numb
         for kkk = 1:numel(to_del)
             delete(to_del(kkk));
         end
-    end  
+    end
     state_tmp = zeros(3,forward_step);
     state_tmp(:,1) = state;
     for prev=2:forward_step
-       state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
+        state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
     thetas = state(3)+linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
     fill(tartuf_ingombro.x([1:end,1])+state(1), tartuf_ingombro.y([1:end,1])+state(2),[0, 100, 255]/255,'FaceAlpha',0.7,'EdgeAlpha',1,'EdgeColor','k','LineWidth',2,'Tag','vehicle');
@@ -197,36 +241,50 @@ for step_id = 1:step_numb
     plot(lidarScan.range_max*cos(thetas)+state(1),lidarScan.range_max*sin(thetas)+state(2),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))]+state(1),lidarScan.range_max*[0,sin(thetas(1))]+state(2),'m--','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(end))]+state(1),lidarScan.range_max*[0,sin(thetas(end))]+state(2),'m--','Tag','laser_range');
-    plot(state(1),state(2),'k.','markersize',8);    
+    plot(state(1),state(2),'k.','markersize',8);
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
     
     subplot(2,2,2);
     state_tmp = zeros(3,forward_step);
     state_tmp(:,1) = [0;0;state(3)];
     for prev=2:forward_step
-       state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
+        state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
-    plot(lidarScan.ranges.*cos(thetas),lidarScan.ranges.*sin(thetas),'r*','Tag','laser_point');    
+    plot(lidarScan.ranges.*cos(thetas),lidarScan.ranges.*sin(thetas),'r*','Tag','laser_point');
     plot(lidarScan.range_max*cos(thetas),lidarScan.range_max*sin(thetas),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))],lidarScan.range_max*[0,sin(thetas(1))],'m--','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(end))],lidarScan.range_max*[0,sin(thetas(end))],'m--','Tag','laser_range');
     plot(0,0,'.k','markersize',10,'Tag','laser_range');
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
-    
+    for i=1:size(passaggi,1)
+        plot(distss(passaggi(i,:)).*cos(thetas(passaggi(i,:))),distss(passaggi(i,:)).*sin(thetas(passaggi(i,:))),'bx--','linewidth',2,'Tag','laser_range');
+    end
     
     subplot(2,2,4);
-    distss = lidarScan.ranges;
-    logic = isinf(distss);
-    distss(logic) = lidarScan.range_max; 
     thetas = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
-    plot(thetas,distss,'r--','Tag','laser_range');    
-    plot(thetas(not(logic)),distss(not(logic)),'r*','Tag','laser_range');    
-    plot(thetas(logic),distss(logic),'c*','Tag','laser_range');    
+    state_polar_theta = atan2(state_tmp(2,:),state_tmp(1,:));
+    state_polar_r     = sqrt(state_tmp(2,:).^2+state_tmp(1,:).^2);
+    plot(thetas,distss,'r--','Tag','laser_range');
+    plot(thetas(not(logic)),distss(not(logic)),'r*','Tag','laser_range');
+    plot(thetas(logic),distss(logic),'c*','Tag','laser_range');
     plot([-1 1]*pi,[1 1]*dist,'m-.','Tag','laser_range');
     plot(theta*[1 1],[-0.2 fake_lid.range_max],'m-.','Tag','laser_range');
     plot(theta, dist,'mo','Tag','laser_range');
-    drawnow();
+    plot(state_polar_theta,state_polar_r,'--g','Tag','path')
     
+    %[valli,picchi] = trovaPicchi(distss);
+    %     media = mean(distss);
+    %     logic_jump = (abs(diff(distss))>0.8);
+    %     logic_high = (distss>5.5);
+    %     plot(thetas(logic_jump),distss(logic_jump) ,'b.','markersize',10,'Tag','laser_range');
+    %     plot(thetas(logic_high),distss(logic_high) ,'b.','markersize',10,'Tag','laser_range');
+    %     plot(thetas(picchi),distss(picchi),'bx','markersize',3,'Tag','laser_range');
+    for i=1:size(passaggi,1)
+        plot(thetas(passaggi(i,:)),distss(passaggi(i,:)),'bx--','linewidth',2,'Tag','laser_range');
+    end
+    
+    drawnow();
+%     pause();
     endTime = toc;
     pause(dt-endTime);
     

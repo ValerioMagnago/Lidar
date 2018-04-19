@@ -142,7 +142,8 @@ vortex_force_old = [0;0];
 fprintf('%d) Create random state \n',sec_numb); sec_numb = sec_numb + 1;
 rng(0,'twister');  % initialize the random number generator to make the results in this example repeatable
 
-s0 = [380;-16;0];
+% s0 = [380;-16;0];
+s0 = [3001.5;-55;-pi/2];
 state = s0; % x,y,theta of the system
 
 
