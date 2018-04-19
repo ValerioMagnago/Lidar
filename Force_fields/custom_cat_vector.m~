@@ -1,9 +1,0 @@
-function out = custom_cat_vector(a, b, dim)
-if dim == 1
-    
-else
-    
-end
-
-
-out = [a;b];
