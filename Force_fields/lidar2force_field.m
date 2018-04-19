@@ -3,7 +3,7 @@ function [v, omega] = lidar2force_field(lidarScan, state, v_measured, omega_meas
 %% Define here parameters
 point_closeness                      = 0.15; % distance between two point belonging to the same obstacle
 walker_positions                     = {[0;0]}; % positions around which the fields is computed. Use more than one position to filter
-Grad_U                               = @(R, U_0_alpha_B, r_alpha_B_x, r_alpha_B_y)[-(U_0_alpha_B.*exp(-sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2)./R).*abs(r_alpha_B_x).*sign(r_alpha_B_x).*1.0./sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2))./R;-(U_0_alpha_B.*exp(-sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2)./R).*abs(r_alpha_B_y).*sign(r_alpha_B_y).*1.0./sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2))./R];
+% Grad_U                               = @(R, U_0_alpha_B, r_alpha_B_x, r_alpha_B_y)[-(U_0_alpha_B.*exp(-sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2)./R).*abs(r_alpha_B_x).*sign(r_alpha_B_x).*1.0./sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2))./R;-(U_0_alpha_B.*exp(-sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2)./R).*abs(r_alpha_B_y).*sign(r_alpha_B_y).*1.0./sqrt(abs(r_alpha_B_x).^2+abs(r_alpha_B_y).^2))./R];
 [R_potential, U_0_alpha_B_potential] = tune_potential(0.5, 1, 10, 0.01);
 [R_vortex, U_0_alpha_B_vortex]       = tune_potential(0.5, 3, 3, 1);
 max_deceleration                     = 10;

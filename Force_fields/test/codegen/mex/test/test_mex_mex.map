@@ -1,0 +1,14 @@
+MEX {
+	global:
+		mexFunction;
+		emlrtMexFcnProperties;
+		test;
+		emxEnsureCapacity;
+		emxFree_real_T;
+		emxInit_real_T;
+		test_initialize;
+		test_terminate;
+		test_atexit;
+	local:
+		*;
+};
