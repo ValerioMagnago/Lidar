@@ -142,8 +142,10 @@ vortex_force_old = [0;0];
 fprintf('%d) Create random state \n',sec_numb); sec_numb = sec_numb + 1;
 rng(0,'twister');  % initialize the random number generator to make the results in this example repeatable
 
-s0 = [380;-16;0];
-state = s0; % x,y,theta of the system
+s0          = [380;-16;0];
+state       = s0; % x,y,theta of the system
+v_old       = 0; % initial linear velocity
+omega_old   = 0; % initial angular velocity
 
 
 dt = 0.1;
@@ -151,160 +153,31 @@ sim_time = 1000;  % time to simulate in sec
 step_numb = sim_time/dt;
 for step_id = 1:step_numb
     tic
+    
+    
     %% Simulate LIDAR
     [lidarScan] = simulateLIDAR(LidarScanArea,obstaclesTree,state);
+    [v, omega]  = lidar2force_field(lidarScan, state, v_old, omega_old, dt);
+    v_old       = v;
+    omega_old   = omega;
     
-    %% Compute control
-    angles = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
-    
-    %% Elaborate lidar data
-    % put the obstacles measured in groups
-    obst_group = group_obstacles(angles, lidarScan.ranges, 0.15);
-    
-    %% Filtered potential fields
-    points           = point_obst(obst_group, angles, lidarScan.ranges, [0;0]); % the zero is correct
-    repulsive_force  = [0;0];
-    vortex_force     = [0;0];
-    for kk = 1:length(walker_positions)
-        points         = point_obst(obst_group, angles, lidarScan.ranges, walker_positions{kk}); % find the closest point for each obstacle
-        %% Repulsive actions
-        tmp             = size(points);
-        for j = 1:tmp(2) % number of column of points
-            r_alpha         = [0;0];
-            r_B             = [points(1,j); points(2,j)];
-            r_alpha_B       = r_alpha - r_B;
-            r_alpha_B_x     = r_alpha_B(1);
-            r_alpha_B_y     = r_alpha_B(2);
-            repulsive_force = repulsive_force - Grad_U(R_potential, U_0_alpha_B_potential,r_alpha_B_x, r_alpha_B_y);
-        end
-        %% Vortex force       
-        for j = 1:tmp(2) % number of column of points
-            r_alpha         = [0;0];
-            r_B             = [points(1,j); points(2,j)];
-            r_alpha_B       = r_alpha - r_B;
-            r_alpha_B_x     = r_alpha_B(1);
-            r_alpha_B_y     = r_alpha_B(2);
-            tmp             = Grad_U(R_vortex, U_0_alpha_B_vortex, r_alpha_B_x, r_alpha_B_y);
-            grad_x          = tmp(1);
-            grad_y          = tmp(2);
-            positive_vortex = [grad_y; -grad_x];
-            
-            
-            vortex_dot_robot = dot([1;0], positive_vortex);
-            vortex_dot_force = dot(positive_vortex, vortex_force_old);
-            if (step_id == 1 &&  vortex_dot_robot < 0) 
-                positive_vortex = -positive_vortex; % initialize in vehicle direction
-            elseif  vortex_dot_robot < 0
-                positive_vortex = -positive_vortex;
-            end       
-            vortex_force = vortex_force + positive_vortex;
-        end
-        
-    end
-    vortex_force     = vortex_force    / length(walker_positions); 
-    repulsive_force  = repulsive_force / length(walker_positions);
-    
-    %% Add attractive force
-    % Compute acceleration term
-    attractive_force = [0;0];
-    %% Total force
-    total_force  = attractive_force + repulsive_force + vortex_force * 1;
-    vortex_force_old = total_force;
-    %% Run controller
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % choose the forward vel
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if step_id == 1
-        v = v_0; % i.e., in the initial time move
-    else
-        force_prj     = dot([1;0], total_force); 
-        force_angle   = dot([1;0],total_force / (eps + norm(total_force)));   % cos(angle) between force and vehicle
-        if force_angle >= cos(braking_angle) % then acelerate using a PI to the desired speed
-            v = v_old + dt * k_i_vel * (v_des - v_old);
-            v = min(v, v_max); % this should be useless
-            v = max(0, v);
-        else % then brake
-            braking_action = max_deceleration *  (force_angle - cos(braking_angle));
-            v              = v_old + dt * braking_action;
-            v              = max(0, v);
-        end
-    end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % choose the angular vel
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    omega = k_prj_omega * dot([0;1], total_force);
-    omega = min(omega_max, max(-omega_max, omega));
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-%     v     = 1;
-    v_old = v;
-%     omega = 1;
-    
-    
- 
     %% PLOT
     forward_time = 2;
     forward_step = ceil(forward_time/dt);
     subplot(1,2,1);
     tag_to_del = {'laser_point','laser_range','vehicle','speeds','path'};
     tmp = [cos(state(3)), -sin(state(3)); sin(state(3)), cos(state(3))]*[total_force(1);total_force(2)];
-%     arrow = quiver(state(1), state(2), tmp(1), tmp(2), 'color', 'g', 'linewidth', 2);
+    %     arrow = quiver(state(1), state(2), tmp(1), tmp(2), 'color', 'g', 'linewidth', 2);
     for kk=1:numel(tag_to_del)
         to_del = findobj('Tag',tag_to_del{kk});
         for kkk = 1:numel(to_del)
             delete(to_del(kkk));
         end
-    end  
+    end
     state_tmp = zeros(3,forward_step);
     state_tmp(:,1) = state;
     for prev=2:forward_step
-       state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
+        state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
     thetas = state(3) + linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
     fill(tartuf_ingombro.x([1:end,1])+state(1), tartuf_ingombro.y([1:end,1])+state(2),[0, 100, 255]/255,'FaceAlpha',0.7,'EdgeAlpha',1,'EdgeColor','k','LineWidth',2,'Tag','vehicle');
@@ -313,8 +186,8 @@ for step_id = 1:step_numb
     plot(lidarScan.ranges.*cos(thetas)+state(1),lidarScan.ranges.*sin(thetas)+state(2),'r*','Tag','laser_point');
     plot(lidarScan.range_max*cos(thetas)+state(1),lidarScan.range_max*sin(thetas)+state(2),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))]+state(1),lidarScan.range_max*[0,sin(thetas(1))]+state(2),'m--','Tag','laser_range');
-    plot(lidarScan.range_max*[0,cos(thetas(end))]+state(1),lidarScan.range_max*[0,sin(thetas(end))]+state(2),'m--','Tag','laser_range'); 
-    plot(state(1),state(2),'k.','markersize',8);    
+    plot(lidarScan.range_max*[0,cos(thetas(end))]+state(1),lidarScan.range_max*[0,sin(thetas(end))]+state(2),'m--','Tag','laser_range');
+    plot(state(1),state(2),'k.','markersize',8);
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
     
     
@@ -323,17 +196,17 @@ for step_id = 1:step_numb
     state_tmp = zeros(3,forward_step);
     state_tmp(:,1) = [0;0;state(3)];
     for prev=2:forward_step
-       state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
+        state_tmp(:,prev) = updateState(state_tmp(:,prev-1),v,omega,dt);
     end
     
-    plot(lidarScan.ranges.*cos(thetas),lidarScan.ranges.*sin(thetas),'r*','Tag','laser_point');    
+    plot(lidarScan.ranges.*cos(thetas),lidarScan.ranges.*sin(thetas),'r*','Tag','laser_point');
     plot(lidarScan.range_max*cos(thetas),lidarScan.range_max*sin(thetas),'--m','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(1))],lidarScan.range_max*[0,sin(thetas(1))],'m--','Tag','laser_range');
     plot(lidarScan.range_max*[0,cos(thetas(end))],lidarScan.range_max*[0,sin(thetas(end))],'m--','Tag','laser_range');
     plot(0,0,'.k','markersize',10,'Tag','laser_range');
     plot(state_tmp(1,:),state_tmp(2,:),'--g','Tag','path')
-%     arrow = quiver(0,0, total_force(1), total_force(2), 'color', 'g', 'linewidth', 2);
-
+    %     arrow = quiver(0,0, total_force(1), total_force(2), 'color', 'g', 'linewidth', 2);
+    
     
     subplot(2,2,4);
     thetas = linspace(lidarScan.angle_min,lidarScan.angle_max,numel(lidarScan.ranges));
