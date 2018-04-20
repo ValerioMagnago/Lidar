@@ -1,4 +1,4 @@
-function obst_group = group_obstacles(angle, distance, tolerance)
+function output = group_obstacles(angle, distance, tolerance)
 % Given the vector of angles and distaces measured by the lidar, return a
 % cell of obstacles. Each element of the cell is an array of points
 
@@ -19,12 +19,10 @@ for i = 1:length(angle)
             %% continue to add to the obstacle
             obstacle_vec = [obstacle_vec; i]; 
         elseif not(isnan(r) || isinf(r)) % then a new obs is needed
-%             obst_group{n_obs} = obstacle_vec; %#ok<SAGROW>
             obst_group{end+1}        = obstacle_vec;
             obstacle_vec      = i;
             n_obs             = n_obs + 1;
         elseif isnan(r) || isinf(r)% since not(isempty(obstacle_vec)) is true, I add the current non empty obs to the list
-%             obst_group{n_obs} = obstacle_vec; %#ok<SAGROW>
             obst_group{end+1}        = obstacle_vec;
             obstacle_vec      = ones(0,1);
         end
@@ -32,7 +30,6 @@ for i = 1:length(angle)
 end
 %% add the last obstacle
 if n_obs > 0 && not(isnan(distance(end)) || isinf(distance(end)))
-%     obst_group{n_obs} = obstacle_vec;
     obst_group{end+1}        =  obstacle_vec;
 end
 
@@ -45,7 +42,6 @@ else
     indice_finale = numel(obst_group);    
 end
 %% Delete obstacles with one point
-%obst_group_old = obst_group;
 coder.varsize('output');
 output = cell(1,0);
 n_obs          = 0;

@@ -11,6 +11,7 @@ DEBUG = false;
 [ WallSegmentsInFOV, ~] = findSegmentInLidarArea( LidarScanArea,obstaclesTree);
 
 % Search the segments in foreground
+LaneInView = findForegroundSegments(WallSegmentsInFOV,state(1:2,1),LidarScanArea.radius);
 
 % Generate final point
 lidarScan = generateLidar(LaneInView,state(3));

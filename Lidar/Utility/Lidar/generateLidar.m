@@ -6,8 +6,8 @@ lidar = defaultLaserData();
 if(isempty(LaneInView))
    return; 
 end
-thetas = theta0 +linspace(lidar.angle_min,lidar.angle_max,numel(lidar.ranges));
-% thetas = theta0 + (lidar.angle_min:lidar.angle_increment:(lidar.angle_max+lidar.angle_increment/2));
+thetas = theta0 +linspace(lidar.AngleMin,lidar.AngleMax,numel(lidar.Ranges));
+% thetas = theta0 + (lidar.AngleMin:lidar.angle_increment:(lidar.AngleMax+lidar.angle_increment/2));
 
 if DEBUG
     figure();
@@ -102,10 +102,10 @@ while passi<(numel(thetas)-1)
     % Vediamo che theta sia maggiore del minimo theta del segmeneto
     if(normalizeDistance(theta,LaneInView(lane_id,2))>0)
         range = findDfromTheta(LaneInView(lane_id,4),LaneInView(lane_id,5),theta);
-        if range<lidar.range_min
-            lidar.ranges(k) = NaN;
-        elseif range<lidar.range_max
-            lidar.ranges(k) = range;
+        if range<lidar.RangeMin
+            lidar.Ranges(k) = NaN;
+        elseif range<lidar.RangeMax
+            lidar.Ranges(k) = range;
         end
     end    
     
@@ -123,8 +123,8 @@ while passi<(numel(thetas)-1)
         p2 = findDfromTheta(LaneInView(lane_id,4),LaneInView(lane_id,5),LaneInView(lane_id,3))*[cos(LaneInView(lane_id,3));sin(LaneInView(lane_id,3))];
         plot([p1(1),p2(1)],[p1(2),p2(2)],'g','Tag','active');
         
-        px = lidar.ranges(k)*[0,cos(theta)];
-        py = lidar.ranges(k)*[0,sin(theta)];
+        px = lidar.Ranges(k)*[0,cos(theta)];
+        py = lidar.Ranges(k)*[0,sin(theta)];
         plot(px,py,'xk','Tag','laser_point','markersize',10);
         plot(px,py,'.k','markersize',5);
         
@@ -137,16 +137,23 @@ end
 
 
 function default = defaultLaserData()
-default.seq  = 1;
-default.time = 1;
-default.angle_min = -1.5708;
-default.angle_max = 1.5647;
-default.angle_increment = 0.0061;
-default.time_increment = 9.7656e-05; 
-default.scan_time = 0.1000;
-default.range_min = 0.02;
-default.range_max = 5.6;
-default.ranges = Inf(1,515);
+persistent id;
+if isempty(id)
+    id = 0;
+end
+id = id + 1;
+default.Header.MessageType  = 'std_msgs/Header';
+default.Header.Seq  = id;
+default.Header.Stamp.Sec = 0;
+default.Header.Stamp.Nsec = 0;
+default.AngleMin = -1.5708;
+default.AngleMax = 1.5647;
+default.AngleIncrement = 0.0061;
+default.TimeIncrement = 9.7656e-05; 
+default.ScanTime = 0.1000;
+default.RangeMin = 0.02;
+default.RangeMax = 5.6;
+default.Ranges = Inf(515,1);
 end
 
 
